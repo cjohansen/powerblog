@@ -201,3 +201,30 @@ You will now be introduced to Powerpack's development experience: the browser
 automatically refreshes to render the updated version. Powerpack live reloads
 your page whenever you change the content, the code that renders it, or any
 assets (CSS, images, etc).
+
+## Introducing: Mapdown
+
+Powerpack understands [mapdown](https://github.com/magnars/mapdown), a small
+extension to Markdown that allows you to put key/value pairs into a markdown
+file. Let's use it to create a frontpage.
+
+Add the following to `content/index.md`:
+
+```md
+:page/uri /
+:page/body
+
+# The Powerblog
+
+You have reached the Powerblog, the highly fictitious blog that simply exists to
+showcase [Powerpack](https://github.com/cjohansen/powerpack).
+```
+
+Because this file contains the `:page/uri` key, Powerpack will not give it a URL
+based on its path. Instead, this will be our frontpage. You should be able to
+see it on [http://localhost:5050/](http://localhost:5050/).
+
+To demonstrate yet another development feature, try changing `:page/body` to
+`:page-body` in the markdown file and save it. Powerpack will encounter an
+error that is displayed in a HUD at the bottom of the page until you fix it.
+Change it back and save the file to see the error go away.
