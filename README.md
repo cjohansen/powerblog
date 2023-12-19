@@ -168,10 +168,10 @@ That's because our rendering function in `powerblog.core` looks like this:
 ```
 
 This function receives two parameters, a `context`, and a `page`. The `context`
-contains `:uri`, just like a Ring request, and `:powerpack/app`, your full
-Powerpack app. It is also possible to add additional keys to the context per
-request, like secondary data sources, custom configuration and whatever. We'll
-get back to that.
+contains `:uri`, just like a Ring request, a Datomic database value in `:app/db`
+and `:powerpack/app`, your full Powerpack app. It is also possible to add
+additional keys to the context per request, like secondary data sources, custom
+configuration and whatever. We'll get back to that.
 
 The more interesting parameter is the `page`, it is an entity map from Datomic.
 It will contain whatever information you have added to the database under this
@@ -228,3 +228,202 @@ To demonstrate yet another development feature, try changing `:page/body` to
 `:page-body` in the markdown file and save it. Powerpack will encounter an
 error that is displayed in a HUD at the bottom of the page until you fix it.
 Change it back and save the file to see the error go away.
+
+## Adding a schema
+
+Since we're building a blog, let's add a schema to store blog posts and authors.
+Change `resources/schema.edn` so it contains the following:
+
+```clj
+[{:db/ident :blog-post/author
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :blog-post/tags
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/many}
+ {:db/ident :person/id
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/identity}
+ {:db/ident :person/full-name
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one}]
+```
+
+Whenever you change the schema, Powerpack will reboot your app and refresh the
+browser.
+
+Refer to Datomic's [schema
+documentation](https://docs.datomic.com/pro/schema/schema.html) for details on
+the schema.
+
+Next up, we will add an author. Since we're not expecting large amounts of
+markup, we'll stick this information in EDN files rather than markdown. You can
+have multiple authors in one file, or one file per author - it's up to you.
+Let's just create a file with a single author in it.
+
+### Adding EDN content
+
+Add the following to `content/authors/christian.edn`:
+
+```clj
+{:person/id :christian
+ :person/full-name "Christian Johansen"}
+```
+
+Unlike markdown files, EDN files are not treated as pages by Powerpack. The
+content is just read into Datomic. If you want EDN files to create one or more
+pages, it must contain map(s) with `:page/uri` on them.
+
+### Add a mapdown blog post
+
+Create a blog post in `content/blog-posts/first-post.md`:
+
+```md
+:page/title On the wonders of climbing
+:blog-post/tags [:climbing :nature]
+:blog-post/author {:person/id :christian}
+:page/body
+
+# On the wonders of climbing
+
+[Climbing](https://en.wikipedia.org/wiki/Climbing), a primal instinct ingrained
+in our evolutionary history, takes on a playful and acrobatic twist when
+observed in the world of monkeys. As we delve into the realm of these agile and
+nimble creatures, we uncover a captivating tapestry of tree-bound adventures,
+showcasing their unparalleled mastery of the vertical realm.
+```
+
+This is mapdown once again. Because we didn't give it a specific `:page/uri`, it
+will be available at its path,
+[/blog-posts/first-post/](http://localhost:5050/blog-posts/first-post/). Notice
+the use of `:page/title` -- another built-in schema attribute. Also notice that
+the `:blog-post/tags` is parsed as a collection of keywords to match the
+database schema.
+
+### Interact with the data model
+
+The structured information about the blog post and the author is currently
+nowhere to be seen on the site. You can verify that it's present by interacting
+with the database. Update the `comment`-block in `powerblog.dev` to the
+following and evaluate the forms:
+
+```clj
+(comment
+
+  (set! *print-namespace-maps* false)
+
+  (dev/start)
+  (dev/stop)
+  (dev/reset)
+
+  (def app (dev/get-app))
+
+  (require '[datomic.api :as d])
+
+  (def db (d/db (:datomic/conn app)))
+
+  (->> (d/entity db [:page/uri "/blog-posts/first-post/"])
+       :blog-post/author
+       (into {}))
+
+  ;;=> {:person/id :christian
+  ;;    :person/full-name "Christian Johansen"}
+
+  )
+```
+
+This example shows you that the page is indeed a blog post, and you can navigate
+to the author from the entity map.
+
+### Differentiate rendering
+
+We are currently rendering all pages the same way. We can add a dispatching
+mechanism in `render-page` to render the frontpage differently from the blog
+posts and other pages.
+
+We'll handle the frontpage by dispatching on the URL, and then we'll see a more
+robust mechanism that includes that page kind in the database.
+
+Update `render-page` in `powerblog.core` to the following:
+
+```clj
+(defn render-page [context page]
+  (cond
+    (= "/" (:page/uri page))
+    (render-frontpage context page)
+
+    :else
+    (md/render-html (:page/body page))))
+```
+
+Add this new function above it:
+
+```clj
+(defn render-frontpage [context page]
+  [:html
+   [:head
+    [:title "The Powerblog"]]
+   [:body
+    (md/render-html (:page/body page))
+    [:h2 "Blog posts"]]])
+```
+
+This page returns [hiccup](https://github.com/weavejester/hiccup), which
+Powerpack knows how to render.
+
+With this function in place, we can now render the frontpage differently from
+the rest of the pages. Let's spice up the frontpage with a list of blog posts.
+
+### Querying the database
+
+The database is available on the `context` parameter under `:app/db`. We can use
+it to query for any page that contains the `blog-post/author` key:
+
+```clj
+(defn get-blog-posts [db]
+  (->> (d/q '[:find [?e ...]
+              :where
+              [?e :blog-post/author]]
+            db)
+       (map #(d/entity db %))))
+
+(defn render-frontpage [context page]
+  [:html
+   [:head
+    [:title "The Powerblog"]]
+   [:body
+    (md/render-html (:page/body page))
+    [:h2 "Blog posts"]
+    [:ul
+     (for [blog-post (get-blog-posts (:app/db context))]
+       [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]]])
+```
+
+When you save this, the frontpage should update immediately and show your one
+blog post. Clicking the link should take you to the blog post.
+
+### HTML post processing
+
+Having added a title to the frontpage, it becomes clear that the blog post is a
+little bare bones. It doesn't even have a `body` tag. When that is the case,
+Powerpack assumes the page is a fragment (perhaps for fetching via JavaScript)
+and does no post processing. If we update the render function to wrap the page
+in an HTML document, Powerpack adds `:page/title` as the head `title` if you
+don't provide one yourself:
+
+```clj
+(defn render-page [context page]
+  (cond
+    (= "/" (:page/uri page))
+    (render-frontpage context page)
+
+    :else
+    [:html [:body (md/render-html (:page/body page))]]))
+```
+
+Now the blog posts also have a DOCTYPE and the document title reads:
+
+> On the wonders of climbing | The Powerblog
+
+E.g. the page title, with the `:site/title` global configuration option added.
