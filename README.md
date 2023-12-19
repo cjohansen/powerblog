@@ -156,3 +156,48 @@ default configuration, you should see a message about Powerpack being available
 on [http://localhost:5050/](http://localhost:5050/). The frontpage will greet
 you with a 404 for now, but your test page is available at
 [http://localhost:5050/test/](http://localhost:5050/test/).
+
+## Rendering pages
+
+You probably noticed that the test page did not render the markdown content.
+That's because our rendering function in `powerblog.core` looks like this:
+
+```clj
+(defn render-page [context page]
+  "<h1>Hello world</h1>")
+```
+
+This function receives two parameters, a `context`, and a `page`. The `context`
+contains `:uri`, just like a Ring request, and `:powerpack/app`, your full
+Powerpack app. It is also possible to add additional keys to the context per
+request, like secondary data sources, custom configuration and whatever. We'll
+get back to that.
+
+The more interesting parameter is the `page`, it is an entity map from Datomic.
+It will contain whatever information you have added to the database under this
+specific URL. Since we haven't added our own schema yet, it only contains the
+URL and the contents of the markdown file:
+
+```clj
+{:page/uri "/test/",
+ :page/body "# Hello world!\n\nHello there, thanks for stopping by.\n"}
+```
+
+Let's update the test page to render this as Markdown. Powerpack comes with a
+markdown utility. Be sure to keep your browser open, visiting the test page,
+then update `src/powerblog/core.clj`:
+
+```clj
+(ns powerblog.core
+  (:require [powerpack.markdown :as md]))
+
+(defn render-page [context page]
+  (md/render-html (:page/body page)))
+
+;; ...
+```
+
+You will now be introduced to Powerpack's development experience: the browser
+automatically refreshes to render the updated version. Powerpack live reloads
+your page whenever you change the content, the code that renders it, or any
+assets (CSS, images, etc).

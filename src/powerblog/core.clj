@@ -1,7 +1,8 @@
-(ns powerblog.core)
+(ns powerblog.core
+  (:require [powerpack.markdown :as md]))
 
 (defn render-page [context page]
-  "<h1>Hello world</h1>")
+  (md/render-html (:page/body page)))
 
 (def config
   {:site/title "The Powerblog"
