@@ -427,3 +427,125 @@ Now the blog posts also have a DOCTYPE and the document title reads:
 > On the wonders of climbing | The Powerblog
 
 E.g. the page title, with the `:site/title` global configuration option added.
+
+## Ingesting content
+
+As demonstrated so far, Powerpack will do its best to ingest content from files
+to Datomic automatically. But automatic based on assumptions only takes us so
+far. For instance, it would be nice if the blog posts had a URL that started
+with `/blog/` instead of the current `/blog-posts/`, and if they had a more
+stable marker than the presence of `:blog-post/author`. We can fix this by
+processing data on the way from files to the database.
+
+You can give Powerpack a function with `:powerpack/create-ingest-tx` that will
+be called every time content has been read from a file to ingest. The function
+receives the file name and the parsed content. The content is always a vector --
+even if the source is an EDN file with a single map, Powerpack will wrap it in a
+vector. This is done so that the data can be transacted into Datomic
+automatically, even when there is no `:powerpack/create-ingest-tx`. Let's see an
+example. Head over to `powerblog.core` and add the option:
+
+```clj
+(defn create-tx [file-name txes]
+  (cond->> txes
+    (re-find #"^blog-posts/" file-name)
+    (map #(assoc % :page/kind :page.kind/blog-post))))
+
+(def config
+  {:site/title "The Powerblog"
+   :powerpack/render-page #'render-page
+   :powerpack/create-ingest-tx #'create-tx})
+```
+
+This adds the built-in attribute `:page/kind` to all the blog posts. The
+attribute takes any keyword, and is well suited for separating different
+kinds of pages.
+
+When you change the main configuration, Powerpack will automatically reboot.
+
+While we're at it, let's place the rendering functions in `powerblog.pages` and
+the ingest function in `powerblog.ingest` -- gotta keep 'em separated. The
+resulting `powerblog.core` namespace looks like this:
+
+```clj
+(ns powerblog.core
+  (:require [powerblog.ingest :as ingest]
+            [powerblog.pages :as pages]))
+
+(def config
+  {:site/title "The Powerblog"
+   :powerpack/render-page #'pages/render-page
+   :powerpack/create-ingest-tx #'ingest/create-tx})
+```
+
+As your site grows, you might continue this line and add separate namespaces for
+individual page types as well. We'll get there eventually.
+
+### Improved render dispatch
+
+Before we fix the render dispatch from before, lets expand the ingest function
+to add `:page/kind` to all pages, that is all transaction entries that have a
+`:page/uri`:
+
+```clj
+(defn get-page-kind [file-name]
+  (cond
+    (re-find #"^blog-posts/" file-name)
+    :page.kind/blog-post
+
+    (re-find #"^index\.md" file-name)
+    :page.kind/frontpage
+
+    (re-find #"\.md$" file-name)
+    :page.kind/article))
+
+(defn create-tx [file-name txes]
+  (let [kind (get-page-kind file-name)]
+    (for [tx txes]
+      (cond-> tx
+        (and (:page/uri tx) kind)
+        (assoc :page/kind kind)))))
+```
+
+Let's now revisit `powerblog.pages/render-page` and use `:page/kind` for
+dispatch:
+
+```clj
+(defn layout [{:keys [title]} & content]
+  [:html
+   [:head
+    (when title [:title title])]
+   [:body
+    content]])
+
+(def header
+  [:header [:a {:href "/"} "Powerblog"]])
+
+(defn render-frontpage [context page]
+  (layout {:title "The Powerblog"}
+   (md/render-html (:page/body page))
+   [:h2 "Blog posts"]
+   [:ul
+    (for [blog-post (get-blog-posts (:app/db context))]
+      [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]))
+
+(defn render-article [context page]
+  (layout {}
+   header
+   (md/render-html (:page/body page))))
+
+(defn render-blog-post [context page]
+  (render-article context page))
+
+(defn render-page [context page]
+  (case (:page/kind page)
+    :page.kind/frontpage (render-frontpage context page)
+    :page.kind/blog-post (render-blog-post context page)
+    :page.kind/article (render-article context page)))
+```
+
+This is now starting to look like something to build upon. The structure that's
+emerging is one where data processing happens at ingest, and page rendering is
+about converting data from the database to markup. Notice that while Powerpack
+caters to this sort of structure (e.g. by providing `:page/kind`), you are free
+to find your own approach.

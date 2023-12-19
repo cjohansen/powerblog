@@ -20,7 +20,6 @@
   (def db (d/db (:datomic/conn app)))
 
   (->> (d/entity db [:page/uri "/blog-posts/first-post/"])
-       :blog-post/author
        (into {}))
 
   )
