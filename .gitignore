@@ -4,3 +4,4 @@
 /.nrepl-port
 /resources/public/styles.css
 /node_modules/
+/target/

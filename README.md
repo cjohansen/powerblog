@@ -712,3 +712,61 @@ utility classes to our page setup:
 ```
 
 And just like that, all of Tailwind is at our hand.
+
+## Going to production
+
+A good development environment is all fun and games, but not worth alot if you
+can't put something in production. So let's put something in production.
+
+Create a new namespace in `src/powerblog/export.clj` with the following content:
+
+```clj
+(ns powerblog.export
+  (:require [powerblog.core :as blog]
+            [powerpack.export :as export]))
+
+(defn ^:export export! [& args]
+  (-> blog/config
+      (assoc :site/base-url "https://www.example.com")
+      export/export!))
+```
+
+As you can tell, this namespace is an excellent place to make adjustments to the
+Powerpack configuration that are more suitable for the production environment.
+For example, the `:site/base-url` property is used to qualify open graph URLs,
+or - if you didn't add any - add an `og:url` meta tag to your pages,
+differentiate internal and external links, and qualify asset and image urls.
+
+Add a `:build` alias to `deps.edn`:
+
+```clj
+{,,,
+ :aliases
+ {:dev {:extra-paths ["dev"]}
+  :build {:exec-fn powerblog.export/export!}}}
+```
+
+With this alias you can export the site like so:
+
+```sh
+$ clojure -X:build
+[powerpack.export] Creating app
+[powerpack.app] Created database in 245ms
+[powerpack.export]  ... complete in 249ms
+[powerpack.ingest] Ingested authors/christian.edn
+[powerpack.ingest] Ingested blog-posts/first-post.md
+[powerpack.ingest] Ingested index.md
+[powerpack.ingest] Ingested test.md
+[powerpack.app] Ingested all data in 37ms
+[powerpack.export] Rendering, validating and exporting 3 pages
+[powerpack.export]  ... complete in 89ms
+[powerpack.export] Exporting assets
+[powerpack.export]  ... complete in 2ms
+[powerpack.export] Export complete
+[powerpack.export] Exported 3 pages
+[powerpack.export] Ran Powerpack export in 2081ms
+```
+
+Now you have a static copy of your site in `target/powerpack` (change the
+destination by setting `:powerpack/build-dir` in the Powerpack configuration).
+These files can be served as is by any static website host: nginx, AWS S3, etc.

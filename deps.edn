@@ -3,5 +3,4 @@
         no.cjohansen/powerpack {:mvn/version "2023.12.21"}}
  :aliases
  {:dev {:extra-paths ["dev"]}
-  :build {:extra-paths ["dev"]
-          :exec-fn powerblog.export/export!}}}
+  :build {:exec-fn powerblog.export/export!}}}
