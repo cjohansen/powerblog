@@ -5,4 +5,8 @@
 (def config
   {:site/title "The Powerblog"
    :powerpack/render-page #'pages/render-page
-   :powerpack/create-ingest-tx #'ingest/create-tx})
+   :powerpack/create-ingest-tx #'ingest/create-tx
+
+   :optimus/bundles {"app.css"
+                     {:public-dir "public"
+                      :paths ["/styles.css"]}}})

@@ -2,3 +2,5 @@
 /.cpcache/
 /.lsp/
 /.nrepl-port
+/resources/public/styles.css
+/node_modules/

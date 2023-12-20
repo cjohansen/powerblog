@@ -549,3 +549,166 @@ emerging is one where data processing happens at ingest, and page rendering is
 about converting data from the database to markup. Notice that while Powerpack
 caters to this sort of structure (e.g. by providing `:page/kind`), you are free
 to find your own approach.
+
+## Adding some pizazz
+
+Most modern websites have some colors and typography that deviates from the bare
+browser defaults (unfortunately, not every day is [CSS naked
+day](https://css-naked-day.github.io/)). Let's add some of our own.
+
+Powerpack has no opinion on how you do CSS. For this demonstration, we'll start
+small with a single CSS file. Add the following to
+[resources/public/styles.css](./resources/public/styles.css):
+
+```css
+html {
+  font-size: 20px;
+  font-family: Helvetica, arial, sans-serif;
+}
+
+body {
+  background: #18181b;
+  color: #f0f0f0;
+  max-width: 800px;
+  margin: 20px auto;
+  line-height: 1.5;
+}
+
+a:link, a:visited {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+a:hover {
+  text-decoration: none;
+}
+```
+
+Then update the main Powerpack configuration in `powerblog.core` by adding the
+CSS file as a bundle:
+
+```clj
+(def config
+  {:site/title "The Powerblog"
+   :powerpack/render-page #'pages/render-page
+   :powerpack/create-ingest-tx #'ingest/create-tx
+
+   :optimus/bundles {"app.css"
+                     {:public-dir "public"
+                      :paths ["/styles.css"]}}})
+```
+
+Powerpack uses [Optimus](https://github.com/magnars/optimus) to serve assets.
+This way you will have perfectly optimized assets for use in production.
+
+`:optimus/bundles` will automatically be included in any HTML response. CSS
+bundles go in `head`, and JavaScript bundles go in the end of `body`. So,
+without any further ado, the site should now look a little bit more smashing
+than before.
+
+Whenever you update the CSS file, Powerpack will hot reload it for you.
+
+### Adding Tailwind to the mix
+
+Let's try our hand at a slightly more involved asset setup by adding
+[TailwindCSS](https://tailwindcss.com/).
+
+Install and initialize Tailwind:
+
+```sh
+npm install -D tailwindcss
+npm install -D @tailwindcss/typography
+npx tailwindcss init
+```
+
+Next we'll configure Tailwind. It will be able to glean what classes we're using
+from the Clojure source code and update the CSS file accordingly. Put the
+following in `tailwind.config.js`:
+
+```js
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./src/**/*.clj"],
+  theme: {
+    extend: {
+      typography: theme => ({
+        DEFAULT: {
+          css: {
+            a: {
+              color: theme('colors.blue.600')
+            },
+            'a:hover': {
+              color: theme('colors.blue.500')
+            }
+          }
+        },
+        invert: {}
+      })
+    }
+  },
+  plugins: [
+    require('@tailwindcss/typography')
+  ]
+}
+```
+
+We'll need to run the Tailwind CLI to generate the CSS file. I like `Make`, so
+put the following in a `Makefile`:
+
+```
+tailwind:
+    npx tailwindcss -i ./src/main.css -o ./resources/public/styles.css --watch
+
+.PHONY: tailwind
+```
+
+Add the source CSS file in `src/main.css`:
+
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+      font-size: 20px;
+  }
+}
+```
+
+Now run `make tailwind` in a terminal, and Tailwind will keep
+`resources/public/styles.css` up to date for us. We can then add some Tailwind
+utility classes to our page setup:
+
+```clj
+(defn layout [{:keys [title]} & content]
+  [:html.dark:bg-zinc-900
+   [:head
+    (when title [:title title])]
+   [:body.py-8
+    content]])
+
+(def header
+  [:header.mx-auto.dark:prose-invert.prose.mb-8
+   [:a {:href "/"} "Powerblog"]])
+
+(defn render-frontpage [context page]
+  (layout {:title "The Powerblog"}
+   [:article.prose.dark:prose-invert.mx-auto
+    (md/render-html (:page/body page))
+    [:h2 "Blog posts"]
+    [:ul
+     (for [blog-post (get-blog-posts (:app/db context))]
+       [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]]))
+
+(defn render-article [context page]
+  (layout {}
+   header
+   [:article.prose.dark:prose-invert.mx-auto
+    (md/render-html (:page/body page))]))
+
+(defn render-blog-post [context page]
+  (render-article context page))
+```
+
+And just like that, all of Tailwind is at our hand.
