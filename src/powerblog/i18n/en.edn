@@ -1,0 +1,5 @@
+#:powerblog.pages
+{:blog-posts [:fn/plural
+              "No blog posts yet"
+              "My blog post"
+              "Blog posts ({{:n}})"]}

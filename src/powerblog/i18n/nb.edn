@@ -1,0 +1,5 @@
+#:powerblog.pages
+{:blog-posts [:fn/plural
+              "Ingen blogginnlegg enda"
+              "Mitt blogginnlegg"
+              "Blogginnlegg ({{:n}})"]}

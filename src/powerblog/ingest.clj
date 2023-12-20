@@ -5,7 +5,7 @@
     (re-find #"^blog-posts/" file-name)
     :page.kind/blog-post
 
-    (re-find #"^index\.md" file-name)
+    (re-find #"^index(-nb)?\.md" file-name)
     :page.kind/frontpage
 
     (re-find #"\.md$" file-name)

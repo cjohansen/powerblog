@@ -1,6 +1,11 @@
 (ns powerblog.core
-  (:require [powerblog.ingest :as ingest]
+  (:require [m1p.core :as m1p]
+            [powerblog.ingest :as ingest]
             [powerblog.pages :as pages]))
+
+(defn pluralize [opt n & plurals]
+  (-> (nth plurals (min (if (number? n) n 0) (dec (count plurals))))
+      (m1p/interpolate-string {:n n} opt)))
 
 (def config
   {:site/title "The Powerblog"
@@ -23,4 +28,8 @@
                                         [:crop {:preset :square}]]
                       :retina-optimized? true
                       :retina-quality 0.4
-                      :width 184}}}})
+                      :width 184}}}
+
+   :m1p/dictionaries {:nb ["src/powerblog/i18n/nb.edn"]
+                      :en ["src/powerblog/i18n/en.edn"]}
+   :m1p/dictionary-fns {:fn/plural #'pluralize}})

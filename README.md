@@ -873,3 +873,190 @@ serve the image as a retina optimized 184x184 square image. In
 
 ![Heinz Zak climbing](/preview-small/images/climbing.jpg)
 ```
+
+## Internationalizing content
+
+Powerpack comes with i18n support through
+[m1p](https://github.com/cjohansen/m1p), a tiny library for i18n, theming, and
+other "content flavoring".
+
+To use m1p, start by telling Powerpack where to find your dictionaries. In
+`powerblog.core`:
+
+```clj
+(def config
+  {;; ...
+
+   :m1p/dictionaries {:nb ["src/powerblog/i18n/nb.edn"]
+                      :en ["src/powerblog/i18n/en.edn"]}})
+```
+
+At their simplest, m1p dictionaries are just maps. Once again we'll start small.
+Add these two files:
+
+```clj
+;; src/powerblog/i18n/nb.edn
+{:powerblog.pages/blog-posts "Blogginnlegg"}
+
+;; src/powerblog/i18n/en.edn
+{:powerblog.pages/blog-posts "Blog posts"}
+```
+
+Next up, we'll need to know what locale a page is supposed to be in. The
+built-in Powerpack schema includes `:page/locale`, which takes a keyword. We'll
+use this to create two frontpages: one in Norwegian, and one in English.
+
+Start by updating `content/index.md` like so:
+
+```md
+:page/uri /
+:page/locale :en
+:page/body
+
+# The Powerblog
+
+You have reached the Powerblog, the highly fictitious blog that simply exists to
+showcase [Powerpack](https://github.com/cjohansen/powerpack).
+```
+
+Then add `content/index-nb.md`:
+
+```md
+:page/uri /nb/
+:page/locale :nb
+:page/body
+
+# Powerbloggen
+
+Du har nådd Powerbloggen, den høyst fiktive bloggen som kun eksisterer for å demonstrere
+[Powerpack](https://github.com/cjohansen/powerpack).
+```
+
+Update the ingest function in `powerblog.ingest` so it marks the Norwegian
+version as a frontpage as well:
+
+```clj
+(defn get-page-kind [file-name]
+  (cond
+    (re-find #"^blog-posts/" file-name)
+    :page.kind/blog-post
+
+    (re-find #"^index(-nb)?\.md" file-name)
+    :page.kind/frontpage
+
+    (re-find #"\.md$" file-name)
+    :page.kind/article))
+```
+
+Now we're all set to localize the rendering function for the frontpage. Remember
+that it currently contains the heading `[:h2 "Blog posts"]`. We can now replace
+it with a reference to the key in our dictionaries, e.g.
+`:powerblog.pages/blog-posts`:
+
+```clj
+(defn render-frontpage [context page]
+  (layout {:title "The Powerblog"}
+   [:article.prose.dark:prose-invert.mx-auto
+    (md/render-html (:page/body page))
+    [:h2 [:i18n :powerblog.pages/blog-posts]]
+    [:ul
+     (for [blog-post (get-blog-posts (:app/db context))]
+       [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]]))
+```
+
+Since we were thoughtful enough to use the same namespace for the key as the
+namespace this code lives in, we can even do this:
+
+```clj
+(defn render-frontpage [context page]
+  (layout {:title "The Powerblog"}
+   [:article.prose.dark:prose-invert.mx-auto
+    (md/render-html (:page/body page))
+    [:h2 [:i18n ::blog-posts]]
+    [:ul
+     (for [blog-post (get-blog-posts (:app/db context))]
+       [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]]))
+```
+
+We can also make the dictionaries a little more convenient to edit by using
+Clojure's namespaced maps feature:
+
+```clj
+;; src/powerblog/en.edn
+#:powerblog.pages
+{:blog-posts "Blog posts"}
+
+;; src/powerblog/nb.edn
+#:powerblog.pages
+{:blog-posts "Blogginnlegg"}
+```
+
+As usual: when you edit your dictionaries, Powerpack automatically refreshes the
+web page for you.
+
+As the site grows and you have several namespaces, you can put multiple
+namespaced maps in a vector in dictionary files -- or create multiple dictionary
+files. It's up to you.
+
+### Interpolating values
+
+Simple key/value lookup is a little limited. Let's interpolate the number of
+blog posts into the heading. Update the dictionaries:
+
+```clj
+#:powerblog.pages
+{:blog-posts [:fn/str "Blog posts ({{:n}})"]}
+```
+
+`:fn/str` is a [dictionary
+function](https://github.com/cjohansen/m1p?tab=readme-ov-file#dictionary-functions),
+a m1p feature. Feed it a value like so:
+
+```clj
+(defn render-frontpage [context page]
+  (let [blog-posts (get-blog-posts (:app/db context))]
+    (layout {:title "The Powerblog"}
+     [:article.prose.dark:prose-invert.mx-auto
+      (md/render-html (:page/body page))
+      [:h2 [:i18n ::blog-posts {:n (count blog-posts)}]]
+      [:ul
+       (for [blog-post blog-posts]
+         [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]])))
+```
+
+### Custom dictionary functions
+
+To install custom dictionary functions, like the [pluralization
+helper](https://github.com/cjohansen/m1p?tab=readme-ov-file#pluralization) from
+the m1p docs, provide them with the main Powerpack configuration:
+
+```clj
+(ns powerblog.core
+  (:require [m1p.core :as m1p]
+            [powerblog.ingest :as ingest]
+            [powerblog.pages :as pages]))
+
+(defn pluralize [opt n & plurals]
+  (-> (nth plurals (min (if (number? n) n 0) (dec (count plurals))))
+      (m1p/interpolate-string {:n n} opt)))
+
+(def config
+  {;; ...
+   :m1p/dictionaries {:nb ["src/powerblog/i18n/nb.edn"]
+                      :en ["src/powerblog/i18n/en.edn"]}
+   :m1p/dictionary-fns {:fn/plural #'pluralize}})
+```
+
+We can use it in dictionaries like this:
+
+```clj
+#:powerblog.pages
+{:blog-posts [:fn/plural
+              "No blog posts yet"
+              "My blog post"
+              "Blog posts ({{:n}})"]}
+```
+
+Now the heading will read "No blog posts yet" when there are no blog posts, "My
+blog post" when there is only one blog post, and "Blog posts (3)" when there are
+3 blog posts.

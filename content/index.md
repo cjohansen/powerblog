@@ -1,4 +1,5 @@
 :page/uri /
+:page/locale :en
 :page/body
 
 # The Powerblog
