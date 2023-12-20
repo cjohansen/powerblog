@@ -1,6 +1,9 @@
 :page/title On the wonders of climbing
 :blog-post/tags [:climbing :nature]
 :blog-post/author {:person/id :christian}
+:open-graph/title Climbing
+:open-graph/description An interesting piece about climbing
+:open-graph/image /preview-small/images/climbing.jpg
 :page/body
 
 # On the wonders of climbing

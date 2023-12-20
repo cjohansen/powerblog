@@ -1060,3 +1060,69 @@ We can use it in dictionaries like this:
 Now the heading will read "No blog posts yet" when there are no blog posts, "My
 blog post" when there is only one blog post, and "Blog posts (3)" when there are
 3 blog posts.
+
+## Open Graph
+
+Powerpack comes with some built-in keys you can use to auto-generate [open
+graph](https://opengraph.dev/) meta tags on your pages:
+
+- `:open-graph/title`
+- `:open-graph/description`
+- `:open-graph/image`
+
+These can be added directly to our blog post as such:
+
+```md
+:page/title On the wonders of climbing
+:blog-post/author {:person/id :christian}
+:open-graph/title Climbing
+:open-graph/description An interesting piece about climbing
+:open-graph/image /preview-small/images/climbing.jpg
+:page/body
+
+# On the wonders of climbing
+
+[Climbing](https://en.wikipedia.org/wiki/Climbing), a primal instinct ingrained
+in our evolutionary history, takes on a playful and acrobatic twist when
+observed in the world of monkeys. As we delve into the realm of these agile and
+nimble creatures, we uncover a captivating tapestry of tree-bound adventures,
+showcasing their unparalleled mastery of the vertical realm.
+
+![Heinz Zak climbing](/preview-small/images/climbing.jpg)
+```
+
+With these keys on the page entity, the markup will automatically include
+sensible open graph tags:
+
+```html
+<!DOCTYPE html>
+<html lang="en" prefix="og: http://ogp.me/ns#" class="dark:bg-zinc-900">
+  <head>
+    <title>On the wonders of climbing | The Powerblog</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:description" content="An interesting piece about climbing">
+    <meta property="og:title" content="Climbing">
+    <meta property="og:image" content="/image-assets/preview-small/fb6a746aee13f753872432da49c32a1cd019a334/images/climbing.jpg">
+    <meta property="og:image:width" content="184">
+    <meta property="og:image:height" content="184">
+    <link rel="stylesheet" href="/af8dc61fd222/styles.css">
+  </head>
+  <body class="py-8">
+    <!-- ... -->
+  </body>
+</html>
+```
+
+As you can see, Powerpack adds not only open graph metas, but some other useful
+ones as well. It will only add these meta tags if they are not already present.
+If you add your own `<meta name="viewport" ...>` with different `content`,
+Powerpack will not touch it.
+
+You will notice that the image URL is different from the one we set on the page.
+The generated URL includes a [cache
+buster](https://sparkbox.com/foundry/browser_cache_busting_explained), which
+allows you to set a [far future expires
+header](https://stevesouders.com/examples/rule-expires.php) on images for best
+performance. The URL will change whenever the underlying image changes, but not
+otherwise.
