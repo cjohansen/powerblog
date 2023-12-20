@@ -770,3 +770,106 @@ $ clojure -X:build
 Now you have a static copy of your site in `target/powerpack` (change the
 destination by setting `:powerpack/build-dir` in the Powerpack configuration).
 These files can be served as is by any static website host: nginx, AWS S3, etc.
+
+## Displaying an image
+
+Powerpack comes with image manipulation skills courtesy of
+[imagine](https://github.com/cjohansen/imagine). Imagine allow you to configure
+various image aliases that perform transformations such as duotone/greyscale,
+crop, fit, scale, and transform any image accordingly.
+
+We will use an image from the Wikipedia article on climbing, by Heinz Zak to
+demonstrate:
+
+```sh
+mkdir resources/public/images
+
+wget https://upload.wikimedia.org/wikipedia/commons/2/26/Heinz_Zak%2C_Separate_Reality_5%2C11d%2C_Free_Solo%2C_Yosemite-Nationalpark%2C_Kalifornien%2C_USA.jpg \
+  -O resources/public/images/climbing.jpg
+```
+
+Let's add the image to our blog post. Update `content/blog-posts/first-post.md`
+to the following:
+
+```md
+:page/title On the wonders of climbing
+:blog-post/author {:person/id :christian}
+:page/body
+
+# On the wonders of climbing
+
+[Climbing](https://en.wikipedia.org/wiki/Climbing), a primal instinct ingrained
+in our evolutionary history, takes on a playful and acrobatic twist when
+observed in the world of monkeys. As we delve into the realm of these agile and
+nimble creatures, we uncover a captivating tapestry of tree-bound adventures,
+showcasing their unparalleled mastery of the vertical realm.
+
+![Heinz Zak climbing](/images/climbing.jpg)
+```
+
+When you do this, Powerpack will complain loudly. It does not like serving
+assets that are not configured through either Optimus or Imagine. We'll explore
+both options.
+
+### Serving the image with Optimus
+
+To serve the image through Optimus, add `:optimus/assets` to the Powerpack
+configuration:
+
+```clj
+(def config
+  {:site/title "The Powerblog"
+   :powerpack/render-page #'pages/render-page
+   :powerpack/create-ingest-tx #'ingest/create-tx
+
+   :optimus/bundles {"app.css"
+                     {:public-dir "public"
+                      :paths ["/styles.css"]}}
+
+   :optimus/assets [{:public-dir "public"
+                     :paths [#".*\.jpg"]}]})
+```
+
+Now your image is available, and more importantly -- will be exported with the
+rest of the site.
+
+### Serving the image with Imagine
+
+To serve the image with Imagine, we will add transformation configuration (refer
+to the [Imagine readme](https://github.com/cjohansen/imagine) for more details
+on that:
+
+```clj
+(def config
+  {:site/title "The Powerblog"
+   :powerpack/render-page #'pages/render-page
+   :powerpack/create-ingest-tx #'ingest/create-tx
+
+   :optimus/bundles {"app.css"
+                     {:public-dir "public"
+                      :paths ["/styles.css"]}}
+
+   :optimus/assets [{:public-dir "public"
+                     :paths [#".*\.jpg"]}]
+
+   :imagine/config {:prefix "image-assets"
+                    :resource-path "public"
+                    :disk-cache? true
+                    :transformations
+                    {:preview-small
+                     {:transformations [[:fit {:width 184 :height 184}]
+                                        [:crop {:preset :square}]]
+                      :retina-optimized? true
+                      :retina-quality 0.4
+                      :width 184}}}})
+```
+
+We can now prefix the image URL with the transformation name `preview-small` to
+serve the image as a retina optimized 184x184 square image. In
+`content/blog-posts/first-post.md`:
+
+```md
+...
+
+![Heinz Zak climbing](/preview-small/images/climbing.jpg)
+```

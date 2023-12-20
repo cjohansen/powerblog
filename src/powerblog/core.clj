@@ -9,4 +9,18 @@
 
    :optimus/bundles {"app.css"
                      {:public-dir "public"
-                      :paths ["/styles.css"]}}})
+                      :paths ["/styles.css"]}}
+
+   :optimus/assets [{:public-dir "public"
+                     :paths [#".*\.jpg"]}]
+
+   :imagine/config {:prefix "image-assets"
+                    :resource-path "public"
+                    :disk-cache? true
+                    :transformations
+                    {:preview-small
+                     {:transformations [[:fit {:width 184 :height 184}]
+                                        [:crop {:preset :square}]]
+                      :retina-optimized? true
+                      :retina-quality 0.4
+                      :width 184}}}})
