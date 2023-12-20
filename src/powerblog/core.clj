@@ -11,6 +11,7 @@
   {:site/title "The Powerblog"
    :powerpack/render-page #'pages/render-page
    :powerpack/create-ingest-tx #'ingest/create-tx
+   :powerpack/on-ingested #'ingest/on-ingested
 
    :optimus/bundles {"app.css"
                      {:public-dir "public"

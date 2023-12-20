@@ -1,5 +1,8 @@
-#:powerblog.pages
-{:blog-posts [:fn/plural
-              "No blog posts yet"
-              "My blog post"
-              "Blog posts ({{:n}})"]}
+[#:powerblog.pages.frontpage
+ {:blog-posts [:fn/plural
+               "No blog posts yet"
+               "My blog post"
+               "Blog posts ({{:n}})"]}
+
+ #:powerblog.pages.blog-listing
+ {:page-title "Blog posts"}]

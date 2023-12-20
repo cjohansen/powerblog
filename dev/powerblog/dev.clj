@@ -1,5 +1,6 @@
 (ns powerblog.dev
-  (:require [powerblog.core :as blog]
+  (:require [datomic.api :as d]
+            [powerblog.core :as blog]
             [powerpack.dev :as dev]))
 
 (defmethod dev/configure! :default []
@@ -21,5 +22,15 @@
 
   (->> (d/entity db [:page/uri "/blog-posts/first-post/"])
        (into {}))
+
+  (d/q '[:find ?uri
+         :where
+         [_ :page/uri ?uri]]
+       db)
+
+  (d/q '[:find [?tag ...]
+         :where
+         [_ :blog-post/tags ?tag]]
+       db)
 
   )

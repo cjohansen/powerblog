@@ -1,5 +1,8 @@
-#:powerblog.pages
-{:blog-posts [:fn/plural
-              "Ingen blogginnlegg enda"
-              "Mitt blogginnlegg"
-              "Blogginnlegg ({{:n}})"]}
+[#:powerblog.pages.frontpage
+ {:blog-posts [:fn/plural
+               "Ingen blogginnlegg enda"
+               "Mitt blogginnlegg"
+               "Blogginnlegg ({{:n}})"]}
+
+ #:powerblog.pages.blog-listing
+ {:page-title "Blogginnlegg"}]

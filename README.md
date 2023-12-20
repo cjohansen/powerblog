@@ -1126,3 +1126,240 @@ allows you to set a [far future expires
 header](https://stevesouders.com/examples/rule-expires.php) on images for best
 performance. The URL will change whenever the underlying image changes, but not
 otherwise.
+
+## Adding static pages
+
+Some pages don't have any content that's natural to put in a separate markdown
+or EDN file. In order for Powerpack to recognize them as pages, they need to
+exist in the database. Let's look at two options to add these to the database.
+
+### List static pages in an edn file
+
+The simplest approach is to have an EDN file with your static pages in the
+content directory. Add the following to `content/static-pages.edn`:
+
+```edn
+[{:page/uri "/blog/"
+  :page/kind :page.kind/blog-listing
+  :page/locale :en}
+ {:page/uri "/blogg/"
+  :page/kind :page.kind/blog-listing
+  :page/locale :nb}]
+```
+
+As the number of pages is growing, we'll take the opportunity to split pages
+into separate namespaces.
+
+Move the layout to a separate namespace in `src/powerblog/layout.clj`:
+
+```clj
+(ns powerblog.layout)
+
+(defn layout [{:keys [title]} & content]
+  [:html.dark:bg-zinc-900
+   [:head
+    (when title [:title title])]
+   [:body.py-8
+    content]])
+
+(def header
+  [:header.mx-auto.dark:prose-invert.prose.mb-8
+   [:a {:href "/"} "Powerblog"]])
+
+```
+
+Move the frontpage to `src/powerblog/pages/frontpage.clj`:
+
+```clj
+(ns powerblog.pages.frontpage
+  (:require [datomic.api :as d]
+            [powerblog.layout :as layout]
+            [powerpack.markdown :as md]))
+
+(defn get-blog-posts [db]
+  (->> (d/q '[:find [?e ...]
+              :where
+              [?e :blog-post/author]]
+            db)
+       (map #(d/entity db %))))
+
+(defn render-page [context page]
+  (let [blog-posts (get-blog-posts (:app/db context))]
+    (layout/layout {:title "The Powerblog"}
+     [:article.prose.dark:prose-invert.mx-auto
+      (md/render-html (:page/body page))
+      [:h2 [:i18n ::blog-posts (count blog-posts)]]
+      [:ul
+       (for [blog-post blog-posts]
+         [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]])))
+
+```
+
+Add the following to `src/powerblog/pages/blog_listing.clj`:
+
+```clj
+(ns powerblog.pages.blog-listing
+  (:require [powerblog.layout :as layout]
+            [powerblog.pages.frontpage :as frontpage]))
+
+(defn render-page [context page]
+  (layout/layout {:title [:i18n ::page-title]}
+   [:article.prose.dark:prose-invert.mx-auto
+    [:h1 [:i18n ::page-title]]
+    [:ul
+     (for [blog-post (frontpage/get-blog-posts (:app/db context))]
+       [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]]))
+```
+
+The updated `powerblog.pages` now looks like:
+
+```clj
+(ns powerblog.pages
+  (:require [powerblog.pages.article :as article]
+            [powerblog.pages.blog-listing :as blog-listing]
+            [powerblog.pages.blog-post :as blog-post]
+            [powerblog.pages.frontpage :as frontpage]))
+
+(defn render-page [context page]
+  (case (:page/kind page)
+    :page.kind/frontpage (frontpage/render-page context page)
+    :page.kind/blog-post (blog-post/render-page context page)
+    :page.kind/blog-listing (blog-listing/render-page context page)
+    :page.kind/article (article/render-page context page)))
+```
+
+And the i18n dictionaries should look like this:
+
+```clj
+;; src/powerblog/en.edn
+[#:powerblog.pages.frontpage
+ {:blog-posts [:fn/plural
+               "No blog posts yet"
+               "My blog post"
+               "Blog posts ({{:n}})"]}
+
+ #:powerblog.pages.blog-listing
+ {:page-title "Blog posts"}]
+
+
+;; src/powerblog/nb.edn
+[#:powerblog.pages.frontpage
+ {:blog-posts [:fn/plural
+               "Ingen blogginnlegg enda"
+               "Mitt blogginnlegg"
+               "Blogginnlegg ({{:n}})"]}
+
+ #:powerblog.pages.blog-listing
+ {:page-title "Blogginnlegg"}]
+```
+
+Obviously, the blog listing is very similar to the frontpage at this point, but
+the main point was how to seed the database with more pages, and how to think
+about code organization in a growing project.
+
+### Ingest static pages in code
+
+The second option is to add a post-ingest hook to Powerpack to ingest the pages.
+This approach is particularly useful if you want to generate pages with code. As
+an example, let's create a page for each tag in the database. To do this, we'll
+want to associate a tag with each tag page, and for that we need a new schema
+attribute. Update `resources/schema.edn` to this:
+
+```edn
+[{:db/ident :blog-post/author
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :blog-post/tags
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/many}
+ {:db/ident :person/id
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/identity}
+ {:db/ident :person/full-name
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one}
+
+ ;; Add a custom attribute for our tag pages
+ {:db/ident :tag-page/tag
+  :db/valueType :db.type/keyword
+  :db/cardinality :db.cardinality/one}]
+```
+
+Now add `:powerpack/on-ingested` to the Powerpack configuration:
+
+```clj
+(def config
+  {:site/title "The Powerblog"
+   :powerpack/render-page #'pages/render-page
+   :powerpack/create-ingest-tx #'ingest/create-tx
+   :powerpack/on-ingested #'ingest/on-ingested
+
+   ,,,
+   })
+```
+
+This function will be called with the powerpack app instance and the result from
+Datomic's transactions after every time it has updated the database (e.g. when
+it initially boots up, and whenever you change content files, etc). This means
+we can read the contents from the database and use it to transact more pages
+into it. Here's the `on-ingested` function from `powerblog.ingest`:
+
+```clj
+(defn on-ingested [powerpack-app results]
+  (->> (for [tag (d/q '[:find [?tag ...]
+                        :where
+                        [_ :blog-post/tags ?tag]]
+                      (d/db (:datomic/conn powerpack-app)))]
+         {:page/uri (str "/tag/" (name tag) "/")
+          :page/kind :page.kind/tag
+          :tag-page/tag tag})
+       (d/transact (:datomic/conn powerpack-app))
+       deref))
+```
+
+There is a similar hook called `:powerpack/on-started` that only runs once after
+the app boots up (it only receives the powerpack app instance).
+
+We run a [Datomic query](https://docs.datomic.com/pro/query/query.html) to find
+all the tags in use, and create a page entity for each one. Next, let's create
+`src/powerblog/pages/tag.clj` with:
+
+```clj
+(ns powerblog.pages.tag
+  (:require [datomic.api :as d]
+            [powerblog.layout :as layout]))
+
+(defn get-blog-posts [db tag]
+  (->> (d/q '[:find [?e ...]
+              :in $ ?tag
+              :where
+              [?e :blog-post/tags ?tag]]
+            db tag)
+       (map #(d/entity db %))))
+
+(defn render-page [context page]
+  (let [title (str "Blog posts about " (name (:tag-page/tag page)))]
+    (layout/layout
+     {:title title}
+     [:article.prose.dark:prose-invert.mx-auto
+      [:h1 title]
+      [:ul
+       (for [blog-post (get-blog-posts (:app/db context) (:tag-page/tag page))]
+         [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]])))
+```
+
+The keen observer will notice that the tag pages are not localized. Doing so is
+left as an exercise for the reader (all time best cop-out).
+
+Finally, the updated function in `powerblog.pages`:
+
+```clj
+(defn render-page [context page]
+  (case (:page/kind page)
+    :page.kind/frontpage (frontpage/render-page context page)
+    :page.kind/blog-post (blog-post/render-page context page)
+    :page.kind/blog-listing (blog-listing/render-page context page)
+    :page.kind/tag (tag/render-page context page)
+    :page.kind/article (article/render-page context page)))
+```
