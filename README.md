@@ -62,7 +62,7 @@ Add an empty Datomic schema to the default location, `resources/schema.edn`:
 []
 ```
 
-If you ned, you can change the location of the schema with the
+If you need, you can change the location of the schema with the
 `:datomic/schema-file` config option:
 
 ```clj
