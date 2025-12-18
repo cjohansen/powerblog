@@ -616,39 +616,35 @@ Let's try our hand at a slightly more involved asset setup by adding
 Install and initialize Tailwind:
 
 ```sh
-npm install -D tailwindcss
+npm install -D tailwindcss @tailwindcss/cli
 npm install -D @tailwindcss/typography
 npx tailwindcss init
 ```
 
 Next we'll configure Tailwind. It will be able to glean what classes we're using
 from the Clojure source code and update the CSS file accordingly. Put the
-following in `tailwind.config.js`:
+following in `src/tailwind.config.js`:
 
 ```js
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./src/**/*.clj"],
   theme: {
     extend: {
-      typography: theme => ({
+      typography: {
         DEFAULT: {
           css: {
             a: {
-              color: theme('colors.blue.600')
+              color: 'var(--color-blue-600)'
             },
             'a:hover': {
-              color: theme('colors.blue.500')
+              color: 'var(--color-blue-500)'
             }
           }
         },
         invert: {}
-      })
+      }
     }
   },
-  plugins: [
-    require('@tailwindcss/typography')
-  ]
 }
 ```
 
@@ -657,7 +653,7 @@ put the following in a `Makefile`:
 
 ```
 tailwind:
-    npx tailwindcss -i ./src/main.css -o ./resources/public/styles.css --watch
+	npx @tailwindcss/cli -i ./src/main.css -o ./resources/public/styles.css --watch
 
 .PHONY: tailwind
 ```
@@ -665,9 +661,9 @@ tailwind:
 Add the source CSS file in `src/main.css`:
 
 ```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@config "./tailwind.config.js";
 
 @layer base {
   html {
