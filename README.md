@@ -745,7 +745,7 @@ Add a `:build` alias to `deps.edn`:
 With this alias you can export the site like so:
 
 ```sh
-$ clojure -X:dev:build
+$ clojure -X:build
 [powerpack.export] Creating app
 [powerpack.app] Created database in 245ms
 [powerpack.export]  ... complete in 249ms
