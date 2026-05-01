@@ -2,7 +2,7 @@
  {:blog-posts [:fn/plural
                "Ingen blogginnlegg enda"
                "Mitt blogginnlegg"
-               "Blogginnlegg ({{:n}})"]}
+               "Blogginnlegg"]}
 
  #:powerblog.pages.blog-listing
  {:page-title "Blogginnlegg"}]
