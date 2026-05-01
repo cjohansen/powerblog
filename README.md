@@ -655,6 +655,9 @@ put the following in a `Makefile`:
 tailwind:
 	npx @tailwindcss/cli -i ./src/main.css -o ./resources/public/styles.css --watch
 
+resources/public/styles.css:
+	npx @tailwindcss/cli -i ./src/main.css -o ./resources/public/styles.css
+
 .PHONY: tailwind
 ```
 
@@ -745,6 +748,7 @@ Add a `:build` alias to `deps.edn`:
 With this alias you can export the site like so:
 
 ```sh
+$ make resources/public/styles.css
 $ clojure -X:build
 [powerpack.export] Creating app
 [powerpack.app] Created database in 245ms
