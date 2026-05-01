@@ -1,6 +1,6 @@
 {:paths ["src" "resources"]
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
-        no.cjohansen/powerpack {:mvn/version "2023.12.21"}}
+        no.cjohansen/powerpack {:mvn/version "2025.10.22"}}
  :aliases
  {:dev {:extra-paths ["dev"]}
   :build {:exec-fn powerblog.export/export!}}}
