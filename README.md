@@ -1078,6 +1078,7 @@ These can be added directly to our blog post as such:
 ```md
 :page/title On the wonders of climbing
 :blog-post/author {:person/id :christian}
+:blog-post/tags [:climbing :nature]
 :open-graph/title Climbing
 :open-graph/description An interesting piece about climbing
 :open-graph/image /preview-small/images/climbing.jpg
