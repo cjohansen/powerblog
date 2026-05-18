@@ -15,7 +15,7 @@
     (layout/layout {:title "The Powerblog"}
      [:article.prose.dark:prose-invert.mx-auto
       (md/render-html (:page/body page))
-      [:h2 [:i18n ::blog-posts (count blog-posts)]]
+      [:h2 [:i18n ::blog-posts {:n (count blog-posts)}]]
       [:ul
        (for [blog-post blog-posts]
          [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]])))

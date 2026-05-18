@@ -2,7 +2,7 @@
  {:blog-posts [:fn/plural
                "No blog posts yet"
                "My blog post"
-               "Blog posts"]}
+               [:fn/str "Blog posts ({{:n}})"]]}
 
  #:powerblog.pages.blog-listing
  {:page-title "Blog posts"}]

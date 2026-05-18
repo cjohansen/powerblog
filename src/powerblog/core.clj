@@ -3,9 +3,9 @@
             [powerblog.ingest :as ingest]
             [powerblog.pages :as pages]))
 
-(defn pluralize [opt n & plurals]
-  (-> (nth plurals (min (if (number? n) n 0) (dec (count plurals))))
-      (m1p/interpolate-string {:n n} opt)))
+(defn pluralize [opt params & plurals]
+  (-> (nth plurals (min (if (number? (:n params)) (:n params) 0) (dec (count plurals))))
+      (m1p/interpolate-string params opt)))
 
 (def config
   {:site/title "The Powerblog"
