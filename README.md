@@ -1150,8 +1150,8 @@ content directory. Add the following to `content/static-pages.edn`:
   :page/locale :nb}]
 ```
 
-As the number of pages is growing, we'll take the opportunity to split pages
-into separate namespaces.
+As the number of pages grows, we'll take the opportunity to split pages into
+separate namespaces.
 
 Move the layout to a separate namespace in `src/powerblog/layout.clj`:
 
@@ -1212,6 +1212,30 @@ Add the following to `src/powerblog/pages/blog_listing.clj`:
     [:ul
      (for [blog-post (frontpage/get-blog-posts (:app/db context))]
        [:li [:a {:href (:page/uri blog-post)} (:page/title blog-post)]])]]))
+```
+
+Add the following to `src/powerblog/pages/blog_post.clj`:
+
+```clj
+(ns powerblog.pages.blog-post
+  (:require [powerblog.pages.article :as article]))
+
+(defn render-page [context page]
+  (article/render-page context page))
+```
+
+Add the following to `src/powerblog/pages/article.clj`:
+
+```clj
+(ns powerblog.pages.article
+  (:require [powerblog.layout :as layout]
+            [powerpack.markdown :as md]))
+
+(defn render-page [_context page]
+  (layout/layout {}
+   layout/header
+   [:article.prose.dark:prose-invert.mx-auto
+    (md/render-html (:page/body page))]))
 ```
 
 The updated `powerblog.pages` now looks like:
